@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ProductsConn pb.ProductServiceClient
 	Secret       []byte
+	ProductsConn pb.ProductServiceClient
 )
 
 func RetrieveSecret(secretString string) {
@@ -26,7 +26,7 @@ func Initialize(prodConn pb.ProductServiceClient) {
 var ProductType = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name: "product",
-		Fields: &graphql.Fields{
+		Fields: graphql.Fields{
 			"id": &graphql.Field{
 				Type: graphql.Int,
 			},
@@ -47,6 +47,19 @@ var RootQuery = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name: "RootQuery",
 		Fields: graphql.Fields{
+			"product": &graphql.Field{
+				Type: graphql.NewList(ProductType),
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return ProductsConn.GetProduct(context.Background(), &pb.GetProductByID{
+						Id: uint32(p.Args["id"].(int)),
+					})
+				},
+			},
 			"products": &graphql.Field{
 				Type: graphql.NewList(ProductType),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -80,6 +93,8 @@ var Mutation = graphql.NewObject(
 					},
 				},
 				Resolve: middleware.AdminMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+
+					fmt.Println("here reached...")
 					products, err := ProductsConn.AddProduct(context.Background(), &pb.AddProductRequest{
 						Name:     p.Args["name"].(string),
 						Price:    int32(p.Args["price"].(int)),
@@ -89,6 +104,28 @@ var Mutation = graphql.NewObject(
 						fmt.Println(err.Error())
 					}
 					return products, nil
+				}),
+			},
+			"UpdateStock": &graphql.Field{
+				Type: ProductType,
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.ID),
+					},
+					"stock": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+					"increase": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Boolean),
+					},
+				},
+				Resolve: middleware.AdminMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+
+					return ProductsConn.UpdateStock(context.Background(), &pb.UpdateStockRequest{
+						Id:       p.Args["id"].(uint32),
+						Quantity: p.Args["stock"].(int32),
+						Increase: p.Args["increase"].(bool),
+					})
 				}),
 			},
 		},

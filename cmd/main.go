@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	productConn, err := grpc.Dial("product-sevice:3000", grpc.WithInsecure())
+	productConn, err := grpc.Dial("localhost:3000", grpc.WithInsecure())
 	if err != nil {
 		log.Println(err.Error())
 	}
@@ -27,7 +27,7 @@ func main() {
 
 	productRes := pb.NewProductServiceClient(productConn)
 
-	if err := godotenv.Load(".env"); err != nil {
+	if err := godotenv.Load("../.env"); err != nil {
 		log.Fatal(err.Error())
 	}
 	secretString := os.Getenv("SECRET")
