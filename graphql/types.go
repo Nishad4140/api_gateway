@@ -3,6 +3,8 @@ package graph
 import (
 	"context"
 	"fmt"
+	"io"
+	"strconv"
 
 	"github.com/Nishad4140/api_gateway/middleware"
 	"github.com/Nishad4140/proto_files/pb"
@@ -64,11 +66,24 @@ var RootQuery = graphql.NewObject(
 				Type: graphql.NewList(ProductType),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 
+					var res []*pb.AddProductResponse
+
 					products, err := ProductsConn.GetAllProducts(context.Background(), &emptypb.Empty{})
 					if err != nil {
 						fmt.Println(err.Error())
 					}
-					return products, err
+
+					for {
+						prod, err := products.Recv()
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							fmt.Println(err)
+						}
+						res = append(res, prod)
+					}
+					return res, err
 				},
 			},
 		},
@@ -120,10 +135,10 @@ var Mutation = graphql.NewObject(
 					},
 				},
 				Resolve: middleware.AdminMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
-
+					id, _ := strconv.Atoi(p.Args["id"].(string))
 					return ProductsConn.UpdateStock(context.Background(), &pb.UpdateStockRequest{
-						Id:       p.Args["id"].(uint32),
-						Quantity: p.Args["stock"].(int32),
+						Id:       uint32(id),
+						Quantity: int32(p.Args["stock"].(int)),
 						Increase: p.Args["increase"].(bool),
 					})
 				}),
