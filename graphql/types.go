@@ -15,14 +15,16 @@ import (
 var (
 	Secret       []byte
 	ProductsConn pb.ProductServiceClient
+	UsersConn    pb.UserServiceClient
 )
 
 func RetrieveSecret(secretString string) {
 	Secret = []byte(secretString)
 }
 
-func Initialize(prodConn pb.ProductServiceClient) {
+func Initialize(prodConn pb.ProductServiceClient, userConn pb.UserServiceClient) {
 	ProductsConn = prodConn
+	UsersConn = userConn
 }
 
 var ProductType = graphql.NewObject(
@@ -40,6 +42,26 @@ var ProductType = graphql.NewObject(
 			},
 			"quantity": &graphql.Field{
 				Type: graphql.Int,
+			},
+		},
+	},
+)
+
+var UserType = graphql.NewObject(
+	graphql.ObjectConfig{
+		Name: "user",
+		Fields: graphql.Fields{
+			"id": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"name": &graphql.Field{
+				Type: graphql.String,
+			},
+			"email": &graphql.Field{
+				Type: graphql.String,
+			},
+			"password": &graphql.Field{
+				Type: graphql.String,
 			},
 		},
 	},
@@ -94,6 +116,32 @@ var Mutation = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
+			"UserSignUp": &graphql.Field{
+				Type: UserType,
+				Args: graphql.FieldConfigArgument{
+					"name": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					"email": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					"password": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					userData, err := UsersConn.UserSignUp(context.Background(), &pb.UserSignUpRequest{
+						Name:     p.Args["name"].(string),
+						Email:    p.Args["email"].(string),
+						Password: p.Args["password"].(string),
+					})
+					if err != nil {
+						fmt.Println(err.Error())
+						return nil, err
+					}
+					return userData, nil
+				},
+			},
 			"AddProduct": &graphql.Field{
 				Type: ProductType,
 				Args: graphql.FieldConfigArgument{
@@ -117,6 +165,7 @@ var Mutation = graphql.NewObject(
 					})
 					if err != nil {
 						fmt.Println(err.Error())
+						return nil, err
 					}
 					return products, nil
 				}),
