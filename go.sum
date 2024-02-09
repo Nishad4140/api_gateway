@@ -1,7 +1,9 @@
-github.com/Nishad4140/proto_files v0.0.0-20240208092333-6d0bb26b31c2 h1:b83Tzljri5c4dFaydcNcQMyiXNCeEDE7hP2yaMfrG2k=
-github.com/Nishad4140/proto_files v0.0.0-20240208092333-6d0bb26b31c2/go.mod h1:92srnlLz+sGX+nZcMnUED7+3Gvb7YkGFaZrBKC6NMUM=
 github.com/Nishad4140/proto_files v0.0.0-20240208145228-c295c34927b0 h1:CYxSwK4aEgZr5iVuMpu+q/KjRmXPMERNDEleBHoDjcc=
 github.com/Nishad4140/proto_files v0.0.0-20240208145228-c295c34927b0/go.mod h1:92srnlLz+sGX+nZcMnUED7+3Gvb7YkGFaZrBKC6NMUM=
+github.com/Nishad4140/proto_files v0.0.0-20240209061858-01f78ccd3f45 h1:TFEhh5ecWvRLBXN1o8lW0vgsL4GgH8ag1WmIa/kYBxw=
+github.com/Nishad4140/proto_files v0.0.0-20240209061858-01f78ccd3f45/go.mod h1:92srnlLz+sGX+nZcMnUED7+3Gvb7YkGFaZrBKC6NMUM=
+github.com/Nishad4140/proto_files v0.0.0-20240209125507-ce5ea3ca4b7b h1:hhaSD4hznI6pCBZSrZSb5F/YFM66PoZSHQJ20/6Wy+M=
+github.com/Nishad4140/proto_files v0.0.0-20240209125507-ce5ea3ca4b7b/go.mod h1:92srnlLz+sGX+nZcMnUED7+3Gvb7YkGFaZrBKC6NMUM=
 github.com/golang-jwt/jwt v3.2.2+incompatible h1:IfV12K8xAKAnZqdXVzCZ+TOjboZ2keLg81eXfW3O+oY=
 github.com/golang-jwt/jwt v3.2.2+incompatible/go.mod h1:8pz2t5EyA70fFQQSrl6XZXzqecmYZeUEB8OUGHkxJ+I=
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=

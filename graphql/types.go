@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 
+	"github.com/Nishad4140/api_gateway/authorize"
 	"github.com/Nishad4140/api_gateway/middleware"
 	"github.com/Nishad4140/proto_files/pb"
 	"github.com/graphql-go/graphql"
@@ -71,8 +73,157 @@ var RootQuery = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name: "RootQuery",
 		Fields: graphql.Fields{
+			"userlogin": &graphql.Field{
+				Type: UserType,
+				Args: graphql.FieldConfigArgument{
+					"email": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					"password": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					res, err := UsersConn.UserLogin(context.Background(), &pb.LoginRequest{
+						Email:    p.Args["email"].(string),
+						Password: p.Args["password"].(string),
+					})
+					if err != nil {
+						return nil, err
+					}
+					fmt.Println("before token")
+					token, err := authorize.GenerateJwt(uint(res.Id), false, false, Secret)
+					if err != nil {
+						fmt.Println("error here:", err)
+						return nil, err
+					}
+
+					w := p.Context.Value("httpResponseWriter").(http.ResponseWriter)
+
+					fmt.Println("after token")
+
+					http.SetCookie(w, &http.Cookie{
+						Name:  "jwtToken",
+						Value: token,
+						Path:  "/",
+					})
+
+					return res, nil
+				},
+			},
+			"adminlogin": &graphql.Field{
+				Type: UserType,
+				Args: graphql.FieldConfigArgument{
+					"email": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					"password": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					res, err := UsersConn.AdminLogin(context.Background(), &pb.LoginRequest{
+						Email:    p.Args["email"].(string),
+						Password: p.Args["password"].(string),
+					})
+					if err != nil {
+						return nil, err
+					}
+					token, err := authorize.GenerateJwt(uint(res.Id), true, false, Secret)
+					if err != nil {
+						return nil, err
+					}
+
+					w := p.Context.Value("httpResponseWriter").(http.ResponseWriter)
+
+					http.SetCookie(w, &http.Cookie{
+						Name:  "jwtToken",
+						Value: token,
+						Path:  "/",
+					})
+					return res, nil
+				},
+			},
+			"supadminlogin": &graphql.Field{
+				Type: UserType,
+				Args: graphql.FieldConfigArgument{
+					"email": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					"password": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					res, err := UsersConn.SupAdminLogin(context.Background(), &pb.LoginRequest{
+						Email:    p.Args["email"].(string),
+						Password: p.Args["password"].(string),
+					})
+					if err != nil {
+						return nil, err
+					}
+					token, err := authorize.GenerateJwt(uint(res.Id), true, true, Secret)
+					if err != nil {
+						return nil, err
+					}
+
+					w := p.Context.Value("httpResponseWriter").(http.ResponseWriter)
+
+					http.SetCookie(w, &http.Cookie{
+						Name:  "jwtToken",
+						Value: token,
+						Path:  "/",
+					})
+					return res, nil
+				},
+			},
+			"GetAllAdmins": &graphql.Field{
+				Type: graphql.NewList(UserType),
+				Resolve: middleware.SupAdminMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					admins, err := UsersConn.GetAllAdmins(context.Background(), &emptypb.Empty{})
+					if err != nil {
+						return nil, err
+					}
+					var res []*pb.UserResponse
+					for {
+						admin, err := admins.Recv()
+						if err == io.EOF {
+							break
+						}
+						fmt.Println(admin.Name)
+						if err != nil {
+							fmt.Println(err.Error())
+						}
+						res = append(res, admin)
+					}
+					fmt.Println(res)
+					return res, nil
+				}),
+			},
+			"GetAllUsers": &graphql.Field{
+				Type: graphql.NewList(UserType),
+				Resolve: middleware.AdminMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					users, err := UsersConn.GetAllUsers(context.Background(), &emptypb.Empty{})
+					if err != nil {
+						return nil, err
+					}
+					var res []*pb.UserResponse
+					for {
+						user, err := users.Recv()
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							fmt.Println(err.Error())
+						}
+						res = append(res, user)
+
+					}
+					return res, nil
+				}),
+			},
 			"product": &graphql.Field{
-				Type: graphql.NewList(ProductType),
+				Type: ProductType,
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.Int),
@@ -141,6 +292,35 @@ var Mutation = graphql.NewObject(
 					}
 					return userData, nil
 				},
+			},
+			"addAdmin": &graphql.Field{
+				Type: UserType,
+				Args: graphql.FieldConfigArgument{
+					"name": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					"email": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					"password": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: middleware.SupAdminMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+
+					admin, err := UsersConn.AddAdmin(context.Background(), &pb.UserSignUpRequest{
+						Name:     p.Args["name"].(string),
+						Email:    p.Args["email"].(string),
+						Password: p.Args["password"].(string),
+					})
+					fmt.Println(admin)
+					if err != nil {
+						fmt.Println(err.Error())
+						return nil, err
+					}
+
+					return admin, nil
+				}),
 			},
 			"AddProduct": &graphql.Field{
 				Type: ProductType,

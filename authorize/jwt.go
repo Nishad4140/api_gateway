@@ -27,7 +27,7 @@ func GenerateJwt(userId uint, isAdmin bool, isSuAdmin bool, secret []byte) (stri
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwtclaims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtclaims)
 
 	tokenString, err := token.SignedString(secret)
 
@@ -40,7 +40,7 @@ func GenerateJwt(userId uint, isAdmin bool, isSuAdmin bool, secret []byte) (stri
 
 func ValidateToken(tokenString string, secret []byte) (map[string]interface{}, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Payload{}, func(t *jwt.Token) (interface{}, error) {
-		if t.Method != jwt.SigningMethodES256 {
+		if t.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("invalid token")
 		}
 

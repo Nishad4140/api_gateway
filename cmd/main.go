@@ -39,7 +39,7 @@ func main() {
 	}
 	secretString := os.Getenv("SECRET")
 
-	graph.Initialize(productRes,userRes)
+	graph.Initialize(productRes, userRes)
 	graph.RetrieveSecret(secretString)
 	middleware.InitMiddlewareSecret(secretString)
 
