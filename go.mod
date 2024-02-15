@@ -3,7 +3,7 @@ module github.com/Nishad4140/api_gateway
 go 1.21.0
 
 require (
-	github.com/Nishad4140/proto_files v0.0.0-20240209125507-ce5ea3ca4b7b
+	github.com/Nishad4140/proto_files v0.0.0-20240213071247-4d481a007046
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/graphql-go/graphql v0.8.1
 	github.com/joho/godotenv v1.5.1

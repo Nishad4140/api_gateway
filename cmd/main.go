@@ -26,20 +26,27 @@ func main() {
 		log.Println(err.Error())
 	}
 
+	cartConn, err := grpc.Dial("localhost:3003", grpc.WithInsecure())
+	if err != nil {
+		log.Println(err.Error())
+	}
+
 	defer func() {
 		productConn.Close()
 		userConn.Close()
+		cartConn.Close()
 	}()
 
 	productRes := pb.NewProductServiceClient(productConn)
 	userRes := pb.NewUserServiceClient(userConn)
+	cartRes := pb.NewCartServiceClient(cartConn)
 
 	if err := godotenv.Load("../.env"); err != nil {
 		log.Fatal(err.Error())
 	}
 	secretString := os.Getenv("SECRET")
 
-	graph.Initialize(productRes, userRes)
+	graph.Initialize(productRes, userRes, cartRes)
 	graph.RetrieveSecret(secretString)
 	middleware.InitMiddlewareSecret(secretString)
 

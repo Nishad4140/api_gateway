@@ -18,7 +18,7 @@ func InitMiddlewareSecret(secretString string) {
 	secret = []byte(secretString)
 }
 
-func ClientMiddleware(next graphql.FieldResolveFn) graphql.FieldResolveFn {
+func UserMiddleware(next graphql.FieldResolveFn) graphql.FieldResolveFn {
 	return func(p graphql.ResolveParams) (interface{}, error) {
 
 		r := p.Context.Value("request").(*http.Request)
@@ -40,13 +40,13 @@ func ClientMiddleware(next graphql.FieldResolveFn) graphql.FieldResolveFn {
 			return nil, err
 		}
 
-		userIDval := auth["userID"].(uint)
+		userIDval := auth["userId"].(uint)
 
 		if userIDval < 1 {
 			return nil, errors.New("userID is not valid")
 		}
 
-		ctx = context.WithValue(ctx, "userID", userIDval)
+		ctx = context.WithValue(ctx, "userId", userIDval)
 
 		p.Context = ctx
 

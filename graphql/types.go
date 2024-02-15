@@ -18,15 +18,17 @@ var (
 	Secret       []byte
 	ProductsConn pb.ProductServiceClient
 	UsersConn    pb.UserServiceClient
+	CartConn     pb.CartServiceClient
 )
 
 func RetrieveSecret(secretString string) {
 	Secret = []byte(secretString)
 }
 
-func Initialize(prodConn pb.ProductServiceClient, userConn pb.UserServiceClient) {
+func Initialize(prodConn pb.ProductServiceClient, userConn pb.UserServiceClient, cartConn pb.CartServiceClient) {
 	ProductsConn = prodConn
 	UsersConn = userConn
+	CartConn = cartConn
 }
 
 var ProductType = graphql.NewObject(
@@ -64,6 +66,29 @@ var UserType = graphql.NewObject(
 			},
 			"password": &graphql.Field{
 				Type: graphql.String,
+			},
+		},
+	},
+)
+
+var CartType = graphql.NewObject(
+	graphql.ObjectConfig{
+		Name: "cart",
+		Fields: graphql.Fields{
+			"id": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"userId": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"productId": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"quantity": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"total": &graphql.Field{
+				Type: graphql.Float,
 			},
 		},
 	},
@@ -281,16 +306,48 @@ var Mutation = graphql.NewObject(
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					userData, err := UsersConn.UserSignUp(context.Background(), &pb.UserSignUpRequest{
+					// userData, err := UsersConn.UserSignUp(context.Background(), &pb.UserSignUpRequest{
+					// 	Name:     p.Args["name"].(string),
+					// 	Email:    p.Args["email"].(string),
+					// 	Password: p.Args["password"].(string),
+					// })
+					// if err != nil {
+					// 	fmt.Println(err.Error())
+					// 	return nil, err
+					// }
+					// return userData, nil
+					name, _ := p.Args["name"].(string)
+					email, _ := p.Args["email"].(string)
+					password, _ := p.Args["password"].(string)
+
+					if name == "" || email == "" || password == "" {
+						return nil, fmt.Errorf("name, email, and password are required")
+					}
+					res, err := UsersConn.UserSignUp(context.Background(), &pb.UserSignUpRequest{
 						Name:     p.Args["name"].(string),
 						Email:    p.Args["email"].(string),
 						Password: p.Args["password"].(string),
 					})
 					if err != nil {
-						fmt.Println(err.Error())
 						return nil, err
 					}
-					return userData, nil
+					fmt.Println("befor cart")
+					cart, err := CartConn.CreateCart(context.Background(), &pb.CartCreate{
+						UserId: res.Id,
+					})
+					if err != nil {
+						return nil, err
+					}
+					if cart.UserId == 0 {
+						return nil, fmt.Errorf("error while creating cart")
+					}
+					fmt.Println("cart user id", cart.UserId, cart.CartId)
+					response := &pb.UserResponse{
+						Id:    res.Id,
+						Name:  res.Name,
+						Email: res.Email,
+					}
+					return response, nil
 				},
 			},
 			"addAdmin": &graphql.Field{
@@ -370,6 +427,30 @@ var Mutation = graphql.NewObject(
 						Quantity: int32(p.Args["stock"].(int)),
 						Increase: p.Args["increase"].(bool),
 					})
+				}),
+			},
+			"AddToCart": &graphql.Field{
+				Type: CartType,
+				Args: graphql.FieldConfigArgument{
+					"productId": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+					"quantity": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+				},
+				Resolve: middleware.UserMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					userIDval := p.Context.Value("userId").(uint)
+					res, err := CartConn.AddToCart(context.Background(), &pb.AddToCartRequest{
+						UserId:   uint32(userIDval),
+						ProdId:   uint32(p.Args["productId"].(int)),
+						Quantity: int32(p.Args["quantity"].(int)),
+					})
+					if err != nil {
+						return nil, err
+					}
+					fmt.Println(res)
+					return res, nil
 				}),
 			},
 		},
