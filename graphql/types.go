@@ -19,16 +19,18 @@ var (
 	ProductsConn pb.ProductServiceClient
 	UsersConn    pb.UserServiceClient
 	CartConn     pb.CartServiceClient
+	OrderConn    pb.OrderServiceClient
 )
 
 func RetrieveSecret(secretString string) {
 	Secret = []byte(secretString)
 }
 
-func Initialize(prodConn pb.ProductServiceClient, userConn pb.UserServiceClient, cartConn pb.CartServiceClient) {
+func Initialize(prodConn pb.ProductServiceClient, userConn pb.UserServiceClient, cartConn pb.CartServiceClient, orderConn pb.OrderServiceClient) {
 	ProductsConn = prodConn
 	UsersConn = userConn
 	CartConn = cartConn
+	OrderConn = orderConn
 }
 
 var ProductType = graphql.NewObject(
@@ -85,6 +87,32 @@ var CartType = graphql.NewObject(
 				Type: graphql.Int,
 			},
 			"quantity": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"total": &graphql.Field{
+				Type: graphql.Float,
+			},
+		},
+	},
+)
+
+var OrderType = graphql.NewObject(
+	graphql.ObjectConfig{
+		Name: "order",
+		Fields: graphql.Fields{
+			"orderId": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"orderItems": &graphql.Field{
+				Type: graphql.NewList(ProductType),
+			},
+			"addressId": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"orderStatusId": &graphql.Field{
+				Type: graphql.Int,
+			},
+			"paymentTypeId": &graphql.Field{
 				Type: graphql.Int,
 			},
 			"total": &graphql.Field{
@@ -284,6 +312,30 @@ var RootQuery = graphql.NewObject(
 					return res, err
 				},
 			},
+			"GetAllCartItems": &graphql.Field{
+				Type: graphql.NewList(CartType),
+				Resolve: middleware.UserMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					userId := p.Context.Value("userId").(uint)
+					cartItems, err := CartConn.GetAllCart(context.Background(), &pb.CartCreate{
+						UserId: uint32(userId),
+					})
+					if err != nil {
+						return nil, err
+					}
+					var res []*pb.GetAllCartResponse
+					for {
+						item, err := cartItems.Recv()
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							fmt.Println(err.Error())
+						}
+						res = append(res, item)
+					}
+					return res, nil
+				}),
+			},
 		},
 	},
 )
@@ -451,6 +503,50 @@ var Mutation = graphql.NewObject(
 					}
 					fmt.Println(res)
 					return res, nil
+				}),
+			},
+			"RemoveFromCart": &graphql.Field{
+				Type: CartType,
+				Args: graphql.FieldConfigArgument{
+					"productId": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+				},
+				Resolve: middleware.UserMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					userId := p.Context.Value("userId").(uint)
+					return CartConn.RemoveCart(context.Background(), &pb.RemoveCartRequest{
+						UserId: uint32(userId),
+						ProdId: uint32(p.Args["productId"].(int)),
+					})
+				}),
+			},
+			"OrderAll": &graphql.Field{
+				Type: OrderType,
+				Resolve: middleware.UserMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					userId := p.Context.Value("userId").(uint)
+					order, err := OrderConn.OrderAll(context.Background(), &pb.UserId{
+						UserId: uint32(userId),
+					})
+					if err != nil {
+						return nil, err
+					}
+					orderMap := map[string]interface{}{
+						"id": order.OrderId,
+					}
+					return orderMap, nil
+				}),
+			},
+			"CancelOrder": &graphql.Field{
+				Type: OrderType,
+				Args: graphql.FieldConfigArgument{
+					"orderId": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+				},
+				Resolve: middleware.UserMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					return OrderConn.CancelOrder(context.Background(), &pb.OrderId{
+						OrderId: uint32(p.Args["orderId"].(int)),
+					})
 				}),
 			},
 		},
