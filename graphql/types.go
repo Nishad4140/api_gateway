@@ -336,6 +336,66 @@ var RootQuery = graphql.NewObject(
 					return res, nil
 				}),
 			},
+			"GetAllOrdersUser": &graphql.Field{
+				Type: graphql.NewList(OrderType),
+				Resolve: middleware.UserMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					userIdVal := p.Context.Value("userId").(uint)
+					orders, err := OrderConn.GetAllOrdersUser(context.Background(), &pb.UserId{
+						UserId: uint32(userIdVal),
+					})
+					if err != nil {
+						return nil, err
+					}
+					var AllOrders []*pb.GetAllOrdersResponse
+					for {
+						order, err := orders.Recv()
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							return nil, err
+						}
+						AllOrders = append(AllOrders, order)
+					}
+					fmt.Println(AllOrders)
+					return AllOrders, nil
+				}),
+			},
+			"GetAllOrders": &graphql.Field{
+				Type: graphql.NewList(OrderType),
+				Resolve: middleware.AdminMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					orders, err := OrderConn.GetAllOrders(context.Background(), &pb.NoParam{})
+					if err != nil {
+						return nil, err
+					}
+					var res []*pb.GetAllOrdersResponse
+					for {
+						order, err := orders.Recv()
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							return nil, err
+						}
+						res = append(res, order)
+					}
+
+					return res, nil
+				}),
+			},
+			"GetOrder": &graphql.Field{
+				Type: OrderType,
+				Args: graphql.FieldConfigArgument{
+					"orderId": &graphql.ArgumentConfig{
+						Type: graphql.Int,
+					},
+				},
+				Resolve: middleware.UserMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					return OrderConn.GetOrder(context.Background(), &pb.OrderId{
+						OrderId: uint32(p.Args["orderId"].(int)),
+					})
+				}),
+			},
 		},
 	},
 )
@@ -530,10 +590,8 @@ var Mutation = graphql.NewObject(
 					if err != nil {
 						return nil, err
 					}
-					orderMap := map[string]interface{}{
-						"id": order.OrderId,
-					}
-					return orderMap, nil
+
+					return order, nil
 				}),
 			},
 			"CancelOrder": &graphql.Field{
@@ -546,6 +604,23 @@ var Mutation = graphql.NewObject(
 				Resolve: middleware.UserMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
 					return OrderConn.CancelOrder(context.Background(), &pb.OrderId{
 						OrderId: uint32(p.Args["orderId"].(int)),
+					})
+				}),
+			},
+			"ChangeOrderStatus": &graphql.Field{
+				Type: OrderType,
+				Args: graphql.FieldConfigArgument{
+					"orderId": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+					"statusId": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+				},
+				Resolve: middleware.AdminMiddleware(func(p graphql.ResolveParams) (interface{}, error) {
+					return OrderConn.ChangeOrderStatus(context.Background(), &pb.ChangeStatusRequest{
+						OrderId:  uint32(p.Args["orderId"].(int)),
+						StatusId: uint32(p.Args["statusId"].(int)),
 					})
 				}),
 			},
